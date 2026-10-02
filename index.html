@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OPTIX — Inline Food Contamination Screening</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="stylesheet" href="styles.css?v=2.0">
+</head>
+<body class="instrument-bench">
+
+  <!-- ================= TOP COMPACT HEADER ================= -->
+  <header>
+    <div class="brand">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <circle cx="12" cy="12" r="5" stroke="#38bdf8" stroke-width="2"/>
+          <circle cx="12" cy="12" r="2" fill="#38bdf8"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">OPTIX</span>
+        <span class="brand-sub">Inline Microbial Screening • Team AEROS (SIH 2026 - ID 186870)</span>
+      </div>
+    </div>
+
+    <div class="header-status">
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        <span>EDGE SCREENING BENCH</span>
+      </div>
+      <span class="status-spec">Jetson Orin + STM32 • 11-Ch Strobe (2 UV-A + 9 VNIR) • FSSAI Tables 5A/5B</span>
+    </div>
+
+    <div class="header-controls">
+      <a href="https://github.com/sandy1472006/OPTIX" target="_blank" class="btn-toggle" style="text-decoration: none; color: inherit;" title="View GitHub Engineering Repository">
+        <span>📦 GitHub Repo</span>
+      </a>
+      <button id="btnAutoStream" class="btn-toggle" title="Toggle Continuous Conveyor Feed">
+        <span class="toggle-dot"></span>
+        <span id="txtAutoStream">Auto Feed</span>
+      </button>
+      <button id="btnSoundToggle" class="btn-toggle btn-icon" title="Toggle Sound">
+        <span id="soundIcon">🔊</span>
+      </button>
+      <button id="btnResetConveyor" class="btn-toggle btn-icon" title="Reset">
+        ↺
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN 3-PANEL VIEWPORT ================= -->
+  <main>
+
+    <!-- ---------------- LEFT: SIMPLE CONTROL PANEL ---------------- -->
+    <aside class="panel panel-controls">
+      <div class="panel-head">
+        <span>SCENARIO SELECTION</span>
+      </div>
+
+      <div class="controls-body">
+        
+        <!-- 4 SIMPLE BIG PRESET BUTTONS -->
+        <div class="scenarios-list">
+          <button class="btn-scenario active" data-scenario="clean">
+            <span class="dot dot-green"></span>
+            <div class="scenario-info">
+              <strong>Clean Product</strong>
+              <span>Normal baseline tissue → PASS</span>
+            </div>
+          </button>
+
+          <button class="btn-scenario" data-scenario="suspicious">
+            <span class="dot dot-orange"></span>
+            <div class="scenario-info">
+              <strong>Suspicious Spot</strong>
+              <span>Localized anomaly → DIVERT</span>
+            </div>
+          </button>
+
+          <button class="btn-scenario" data-scenario="high-risk">
+            <span class="dot dot-red"></span>
+            <div class="scenario-info">
+              <strong>High-Risk Anomaly</strong>
+              <span>Strong contamination → DIVERT</span>
+            </div>
+          </button>
+
+          <button class="btn-scenario" data-scenario="uncertain">
+            <span class="dot dot-yellow"></span>
+            <div class="scenario-info">
+              <strong>Unknown / Outlier</strong>
+              <span>Uncalibrated pattern → QUARANTINE</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- ESSENTIAL SETTINGS -->
+        <div class="settings-box">
+          <div class="setting-item">
+            <label for="selFoodType">Food Sample</label>
+            <select id="selFoodType" class="clean-select">
+              <option value="poultry" selected>Poultry (Chicken Breast Cut)</option>
+              <option value="fish">Fish (Salmon Fillet)</option>
+              <option value="produce">Fresh Produce (Greens)</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <div class="speed-row">
+              <label for="rangeSpeed">Line Speed</label>
+              <span id="valSpeed" class="speed-value">1.5 m/s</span>
+            </div>
+            <input type="range" id="rangeSpeed" min="0.8" max="2.5" step="0.1" value="1.5" class="clean-range">
+          </div>
+        </div>
+
+        <!-- MAIN ACTION BUTTON -->
+        <button id="btnStartScan" class="btn-scan-primary">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span>SEND NEXT ITEM &amp; SCAN</span>
+        </button>
+
+      </div>
+    </aside>
+
+    <!-- ---------------- CENTER: HERO CONVEYOR & DUAL INSTRUMENTS ---------------- -->
+    <section class="panel panel-center">
+
+      <!-- TOP: THE CONVEYOR BELT -->
+      <div class="conveyor-container">
+        <canvas id="conveyorCanvas"></canvas>
+
+        <!-- SCAN PROGRESS OVERLAY HUD -->
+        <div class="scan-overlay-hud" id="scanHudOverlay">
+          <div class="hud-phase" id="scanStateBadge">READY ON INFEED</div>
+          <div class="hud-bar-wrap">
+            <div id="spectralProgressBar" class="hud-bar" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- AIR JET POPUP ALERT -->
+        <div id="airJetAlert" class="airjet-alert hidden">
+          💨 AIR JET ACTUATED (4.2 BAR)
+        </div>
+
+        <!-- CONVEYOR DESTINATION LABELS -->
+        <div class="dest-label dest-quarantine">
+          <span class="tag-red">QUARANTINE BIN</span>
+          <span class="sub-arrow">↓ Physical Air Jet Diversion</span>
+        </div>
+
+        <div class="dest-label dest-packaging">
+          <span class="tag-green">PACKAGING LINE</span>
+          <span class="sub-arrow">→ Clean Flow</span>
+        </div>
+      </div>
+
+      <!-- BOTTOM: SPLIT DUAL INSTRUMENT CARDS -->
+      <div class="instruments-row">
+
+        <!-- SPECTRAL GRAPH -->
+        <div class="inst-card">
+          <div class="inst-head">
+            <div class="inst-title">
+              <strong>SPECTRAL SIGNATURE</strong>
+              <span class="pill-sim">SIMULATED</span>
+            </div>
+            <div class="inst-value">
+              Deviation: <strong id="valDeviation" class="text-green">LOW (0.04)</strong>
+            </div>
+          </div>
+
+          <div class="inst-canvas-box">
+            <canvas id="spectralCanvas"></canvas>
+          </div>
+
+          <div class="inst-foot">
+            <div class="inst-legend">
+              <span class="legend-line line-blue"></span><span>Baseline Reference</span>
+              <span class="legend-line line-sample ml-3"></span><span>Observed Sample</span>
+            </div>
+            <span>400nm – 1000nm VNIR</span>
+          </div>
+        </div>
+
+        <!-- SPATIAL RISK MAP -->
+        <div class="inst-card">
+          <div class="inst-head">
+            <div class="inst-title">
+              <strong>SPATIAL RISK MAP</strong>
+            </div>
+            <div class="inst-value" id="txtClusterLoc">
+              Normal Baseline (No Anomaly)
+            </div>
+          </div>
+
+          <div class="inst-canvas-box">
+            <canvas id="heatmapCanvas"></canvas>
+            <div id="heatmapTooltip" class="heatmap-tooltip hidden">
+              <span id="tooltipCoord">(x, y)</span>: <strong id="tooltipRisk">0%</strong>
+            </div>
+          </div>
+
+          <div class="inst-foot">
+            <div class="inst-legend">
+              <span class="legend-dot dot-g"></span><span>Normal</span>
+              <span class="legend-dot dot-y ml-2"></span><span>Suspicious</span>
+              <span class="legend-dot dot-r ml-2"></span><span>High Anomaly</span>
+            </div>
+            <span>Hover to inspect coordinates</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ---------------- RIGHT: DECISION & LAB FEEDBACK ---------------- -->
+    <aside class="panel panel-decision">
+      <div class="panel-head">
+        <span>EDGE DECISION &amp; LAB FEEDBACK</span>
+      </div>
+
+      <div class="decision-body">
+
+        <!-- RISK LEVEL BANNER -->
+        <div class="risk-card">
+          <div class="risk-title">CURRENT RISK EVALUATION</div>
+          <div id="riskLevelBadge" class="risk-badge risk-low">
+            <span class="badge-dot"></span>
+            <span id="riskLevelText">LOW RISK (NORMAL)</span>
+          </div>
+          <div class="risk-sub-metrics">
+            <span>Anomaly Score: <strong id="metricAnomaly">0.04</strong></span>
+            <span>Uncertainty: <strong id="metricUncertainty">0.02</strong></span>
+          </div>
+        </div>
+
+        <!-- THREE-WAY SYSTEM DECISION -->
+        <div class="decision-stack">
+          <div class="dec-item dec-pass active" id="decPass">
+            <div class="dec-top">
+              <span class="dec-badge badge-pass">PASS</span>
+              <strong>Normal Spectral Profile</strong>
+            </div>
+            <p>Product continues undisturbed to clean packaging.</p>
+          </div>
+
+          <div class="dec-item dec-divert" id="decDivert">
+            <div class="dec-top">
+              <span class="dec-badge badge-divert">DIVERT</span>
+              <strong>Suspicious Anomaly Detected</strong>
+            </div>
+            <p>Air jet fires millisecond puff → Product knocked into Quarantine Bin.</p>
+          </div>
+
+          <div class="dec-item dec-quarantine" id="decQuarantine">
+            <div class="dec-top">
+              <span class="dec-badge badge-quarantine">QUARANTINE</span>
+              <strong>Uncertain Outlier Pattern</strong>
+            </div>
+            <p>Outlier signature held in quarantine for laboratory confirmation.</p>
+          </div>
+        </div>
+
+        <!-- LAB-IN-THE-LOOP FEEDBACK -->
+        <div class="lab-box">
+          <div class="lab-head">
+            <span>LAB-IN-THE-LOOP FEEDBACK</span>
+            <span id="labSampleId" class="sample-tag">TG-0042</span>
+          </div>
+
+          <div class="lab-status-row">
+            <span>Status:</span>
+            <strong id="labResultText" class="text-muted">Awaiting Inspection</strong>
+          </div>
+
+          <button id="btnSimulateLab" class="btn-lab-action">
+            🧪 Simulate Rapid Lab Confirmation
+          </button>
+
+          <div id="labFeedbackStatus" class="lab-note">
+            Confirmed samples validate and update the Edge AI baseline.
+          </div>
+        </div>
+
+        <!-- REAL-TIME STATS -->
+        <div class="stats-row">
+          <div class="stat-col">
+            <span class="stat-lbl">INSPECTED</span>
+            <strong id="cntTotal">12</strong>
+          </div>
+          <div class="stat-col text-green">
+            <span class="stat-lbl">PASS</span>
+            <strong id="cntPass">10</strong>
+          </div>
+          <div class="stat-col text-orange">
+            <span class="stat-lbl">DIVERTED</span>
+            <strong id="cntDivert">2</strong>
+          </div>
+          <div class="stat-col text-yellow">
+            <span class="stat-lbl">QUARANTINE</span>
+            <strong id="cntQuarantine">0</strong>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="app.js?v=2.0"></script>
+</body>
+</html>
